@@ -1,0 +1,52 @@
+#include <stdlib.h>
+
+#define HASH_SIZE 2000003
+
+typedef struct {
+    int* table;
+    int count;
+} HashTable;
+
+void insert(HashTable* h, int val) {
+    unsigned int hash = (unsigned int)val % HASH_SIZE;
+    while (h->table[hash] != -1) {
+        if (h->table[hash] == val) return;
+        hash = (hash + 1) % HASH_SIZE;
+    }
+    h->table[hash] = val;
+    h->count++;
+}
+
+int subarrayBitwiseORs(int* arr, int arrSize) {
+    HashTable h;
+    h.table = (int*)malloc(HASH_SIZE * sizeof(int));
+    h.count = 0;
+    for (int i = 0; i < HASH_SIZE; i++) h.table[i] = -1;
+
+    int* cur = (int*)malloc(33 * sizeof(int));
+    int curSize = 0;
+
+    for (int i = 0; i < arrSize; i++) {
+        int* next = (int*)malloc(33 * sizeof(int));
+        int nextSize = 0;
+
+        next[nextSize++] = arr[i];
+        insert(&h, arr[i]);
+
+        for (int j = 0; j < curSize; j++) {
+            int newVal = cur[j] | arr[i];
+            if (nextSize == 0 || next[nextSize - 1] != newVal) {
+                next[nextSize++] = newVal;
+                insert(&h, newVal);
+            }
+        }
+
+        free(cur);
+        cur = next;
+        curSize = nextSize;
+    }
+
+    free(cur);
+    free(h.table);
+    return h.count;
+}
