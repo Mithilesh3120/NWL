@@ -1,0 +1,77 @@
+#include <stdlib.h>
+#include <string.h>
+
+int numBusesToDestination(int** routes, int routesSize, int* routesColSize, int source, int target) {
+    if (source == target) return 0;
+
+    int maxStop = 0;
+    for (int i = 0; i < routesSize; i++) {
+        for (int j = 0; j < routesColSize[i]; j++) {
+            if (routes[i][j] > maxStop) maxStop = routes[i][j];
+        }
+    }
+    if (source > maxStop || target > maxStop) return -1;
+
+    int* stopRoutesCount = (int*)calloc(maxStop + 1, sizeof(int));
+    for (int i = 0; i < routesSize; i++) {
+        for (int j = 0; j < routesColSize[i]; j++) {
+            stopRoutesCount[routes[i][j]]++;
+        }
+    }
+
+    int** stopToRoutes = (int**)malloc((maxStop + 1) * sizeof(int*));
+    for (int i = 0; i <= maxStop; i++) {
+        stopToRoutes[i] = (int*)malloc(stopRoutesCount[i] * sizeof(int));
+    }
+
+    int* tempCount = (int*)calloc(maxStop + 1, sizeof(int));
+    for (int i = 0; i < routesSize; i++) {
+        for (int j = 0; j < routesColSize[i]; j++) {
+            int stop = routes[i][j];
+            stopToRoutes[stop][tempCount[stop]++] = i;
+        }
+    }
+
+    // BFS setup
+    int* queue = (int*)malloc((maxStop + 1) * sizeof(int));
+    int* stopVisited = (int*)calloc(maxStop + 1, sizeof(int));
+    int* routeVisited = (int*)calloc(routesSize, sizeof(int));
+    int front = 0, rear = 0, busesCount = 0;
+
+    queue[rear++] = source;
+    stopVisited[source] = 1;
+
+    while (front < rear) {
+        int size = rear - front;
+        for (int i = 0; i < size; i++) {
+            int currStop = queue[front++];
+            if (currStop == target) {
+                // Free structures
+                for (int k = 0; k <= maxStop; k++) free(stopToRoutes[k]);
+                free(stopToRoutes); free(stopRoutesCount); free(tempCount);
+                free(queue); free(stopVisited); free(routeVisited);
+                return busesCount;
+            }
+
+            for (int j = 0; j < stopRoutesCount[currStop]; j++) {
+                int routeId = stopToRoutes[currStop][j];
+                if (routeVisited[routeId]) continue;
+                routeVisited[routeId] = 1;
+
+                for (int k = 0; k < routesColSize[routeId]; k++) {
+                    int nextStop = routes[routeId][k];
+                    if (!stopVisited[nextStop]) {
+                        stopVisited[nextStop] = 1;
+                        queue[rear++] = nextStop;
+                    }
+                }
+            }
+        }
+        busesCount++;
+    }
+
+    for (int k = 0; k <= maxStop; k++) free(stopToRoutes[k]);
+    free(stopToRoutes); free(stopRoutesCount); free(tempCount);
+    free(queue); free(stopVisited); free(routeVisited);
+    return -1;
+}
