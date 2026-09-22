@@ -1,0 +1,54 @@
+#include <stdlib.h>
+
+typedef struct Edge {
+    int to;
+    int dir; // 1 if original direction (needs flip), 0 if reverse
+    struct Edge* next;
+} Edge;
+
+int minReorder(int n, int** connections, int connectionsSize, int* connectionsColSize) {
+    Edge** head = (Edge**)calloc(n, sizeof(Edge*));
+    
+    for (int i = 0; i < connectionsSize; i++) {
+        int u = connections[i][0];
+        int v = connections[i][1];
+        
+        Edge* e1 = (Edge*)malloc(sizeof(Edge));
+        e1->to = v; e1->dir = 1; e1->next = head[u]; head[u] = e1;
+        
+        Edge* e2 = (Edge*)malloc(sizeof(Edge));
+        e2->to = u; e2->dir = 0; e2->next = head[v]; head[v] = e2;
+    }
+    
+    int* queue = (int*)malloc(n * sizeof(int));
+    int* visited = (int*)calloc(n, sizeof(int));
+    int front = 0, rear = 0, change_count = 0;
+    
+    queue[rear++] = 0;
+    visited[0] = 1;
+    
+    while (front < rear) {
+        int curr = queue[front++];
+        Edge* e = head[curr];
+        while (e != NULL) {
+            if (!visited[e->to]) {
+                visited[e->to] = 1;
+                change_count += e->dir;
+                queue[rear++] = e->to;
+            }
+            e = e->next;
+        }
+    }
+    
+    // Free allocated memory
+    for (int i = 0; i < n; i++) {
+        Edge* e = head[i];
+        while (e) {
+            Edge* tmp = e;
+            e = e->next;
+            free(tmp);
+        }
+    }
+    free(head); free(queue); free(visited);
+    return change_count;
+}
