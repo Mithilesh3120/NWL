@@ -1,0 +1,55 @@
+#include <stdlib.h>
+#include <stdbool.h>
+#include <math.h>
+
+int dirs[4][2] = {{0,1}, {1,0}, {0,-1}, {-1,0}};
+
+bool canReach(int** heights, int rows, int cols, int maxEffort) {
+    bool* visited = (bool*)calloc(rows * cols, sizeof(bool));
+    int* queue = (int*)malloc(rows * cols * sizeof(int));
+    int front = 0, rear = 0;
+    
+    queue[rear++] = 0;
+    visited[0] = true;
+    
+    while (front < rear) {
+        int curr = queue[front++];
+        int r = curr / cols;
+        int c = curr % cols;
+        
+        if (r == rows - 1 && c == cols - 1) {
+            free(visited); free(queue);
+            return true;
+        }
+        
+        for (int i = 0; i < 4; i++) {
+            int nr = r + dirs[i][0];
+            int nc = c + dirs[i][1];
+            
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited[nr * cols + nc]) {
+                if (abs(heights[r][c] - heights[nr][nc]) <= maxEffort) {
+                    visited[nr * cols + nc] = true;
+                    queue[rear++] = nr * cols + nc;
+                }
+            }
+        }
+    }
+    free(visited); free(queue);
+    return false;
+}
+
+int minimumEffortPath(int** heights, int heightsSize, int* heightsColSize) {
+    int rows = heightsSize, cols = heightsColSize[0];
+    int low = 0, high = 1000000, ans = 1000000;
+    
+    while (low <= high) {
+        int mid = low + (high - low) / 2;
+        if (canReach(heights, rows, cols, mid)) {
+            ans = mid;
+            high = mid - 1;
+        } else {
+            low = mid + 1;
+        }
+    }
+    return ans;
+}
