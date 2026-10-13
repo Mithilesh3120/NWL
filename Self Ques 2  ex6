@@ -1,0 +1,170 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define PORT 8080
+#define BUFFER_SIZE 1024
+
+// Function to check if a string is a palindrome
+int is_palindrome(char *str) {
+    int left = 0;
+    int right = strlen(str) - 1;
+
+    // Remove newline character if present from network buffering
+    if (right >= 0 && str[right] == '\n') {
+        str[right] = '\0';
+        right--;
+    }
+
+    while (left < right) {
+        if (str[left] != str[right]) {
+            return 0; // Not a palindrome
+        }
+        left++;
+        right--;
+    }
+    return 1; // Is a palindrome
+}
+
+int main() {
+    int server_fd, new_socket;
+    struct sockaddr_in address;
+    int addrlen = sizeof(address);
+    char buffer[BUFFER_SIZE] = {0};
+
+    // 1. Create socket file descriptor
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // 2. Set up server address structure
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY; // Accept connections from any IP
+    address.sin_port = htons(PORT);
+
+    // 3. Bind the socket to the port
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        perror("Bind failed");
+        close(server_fd);
+        exit(EXIT_FAILURE);
+    }
+
+    // 4. Listen for incoming connections
+    if (listen(server_fd, 3) < 0) {
+        perror("Listen failed");
+        close(server_fd);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Palindrome Server is listening on port %d...\n", PORT);
+
+    // 5. Accept and process connections loop
+    while (1) {
+        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
+            perror("Accept failed");
+            continue;
+        }
+
+        printf("\nClient connected.\n");
+
+        while (1) {
+            memset(buffer, 0, BUFFER_SIZE);
+            int valread = read(new_socket, buffer, BUFFER_SIZE - 1);
+            
+            // If client closed connection or error occurred
+            if (valread <= 0) {
+                printf("Client disconnected.\n");
+                break;
+            }
+
+            printf("Received from client: %s\n", buffer);
+
+            // Check palindrome status
+            int result = is_palindrome(buffer);
+            
+            // Send back integer flag (1 or 0)
+            send(new_socket, &result, sizeof(result), 0);
+        }
+        close(new_socket);
+    }
+
+    close(server_fd);
+    return 0;
+}
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define PORT 8080
+#define BUFFER_SIZE 1024
+
+int main() {
+    int sock = 0;
+    struct sockaddr_in serv_addr;
+    char buffer[BUFFER_SIZE] = {0};
+    int server_reply;
+
+    // 1. Create socket
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        printf("\n Socket creation error \n");
+        return -1;
+    }
+
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(PORT);
+
+    // Convert IPv4 address from text to binary form
+    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
+        printf("\nInvalid address/ Address not supported \n");
+        return -1;
+    }
+
+    // 2. Connect to server
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+        printf("\nConnection Failed \n");
+        return -1;
+    }
+
+    printf("Connected to Palindrome Server. Enter 'exit' to quit.\n");
+
+    // 3. Communication loop
+    while (1) {
+        printf("\nEnter a string: ");
+        if (fgets(buffer, BUFFER_SIZE, stdin) == NULL) break;
+
+        // Remove trailing newline character from fgets
+        buffer[strcspn(buffer, "\n")] = '\0';
+
+        // Check if user wants to exit
+        if (strcmp(buffer, "exit") == 0) {
+            break;
+        }
+
+        // Send string to server
+        send(sock, buffer, strlen(buffer), 0);
+
+        // Receive integer result from server
+        if (recv(sock, &server_reply, sizeof(server_reply), 0) <= 0) {
+            printf("Server disconnected.\n");
+            break;
+        }
+
+        // Print result
+        if (server_reply == 1) {
+            printf("Server response: The string IS a palindrome.\n");
+        } else {
+            printf("Server response: The string IS NOT a palindrome.\n");
+        }
+    }
+
+    close(sock);
+    return 0;
+}
+
