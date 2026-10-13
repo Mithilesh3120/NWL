@@ -1,0 +1,244 @@
+#include <stdlib.h>
+
+typedef struct {
+    int* data;
+    int size;
+    int capacity;
+} Heap;
+
+Heap* createHeap(int capacity) {
+    Heap* h = (Heap*)malloc(sizeof(Heap));
+    h->data = (int*)malloc((capacity + 1) * sizeof(int));
+    h->size = 0;
+    h->capacity = capacity;
+    return h;
+}
+
+void swap(int* a, int* b) {
+    int temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+void pushMax(Heap* h, int val) {
+    h->data[++h->size] = val;
+    int i = h->size;
+    while (i > 1 && h->data[i] > h->data[i / 2]) {
+        swap(&h->data[i], &h->data[i / 2]);
+        i = i / 2;
+    }
+}
+
+void popMax(Heap* h) {
+    if (h->size == 0) return;
+    h->data[1] = h->data[h->size--];
+    int i = 1;
+    while (2 * i <= h->size) {
+        int left = 2 * i;
+        int right = 2 * i + 1;
+        int largest = i;
+        if (h->data[left] > h->data[largest]) largest = left;
+        if (right <= h->size && h->data[right] > h->data[largest]) largest = right;
+        if (largest == i) break;
+        swap(&h->data[i], &h->data[largest]);
+        i = largest;
+    }
+}
+
+void pushMin(Heap* h, int val) {
+    h->data[++h->size] = val;
+    int i = h->size;
+    while (i > 1 && h->data[i] < h->data[i / 2]) {
+        swap(&h->data[i], &h->data[i / 2]);
+        i = i / 2;
+    }
+}
+
+void popMin(Heap* h) {
+    if (h->size == 0) return;
+    h->data[1] = h->data[h->size--];
+    int i = 1;
+    while (2 * i <= h->size) {
+        int left = 2 * i;
+        int right = 2 * i + 1;
+        int smallest = i;
+        if (h->data[left] < h->data[smallest]) smallest = left;
+        if (right <= h->size && h->data[right] < h->data[smallest]) smallest = right;
+        if (smallest == i) break;
+        swap(&h->data[i], &h->data[smallest]);
+        i = smallest;
+    }
+}
+
+typedef struct {
+    long long key;
+    int count;
+    int next;
+} HashNode;
+
+typedef struct {
+    HashNode* nodes;
+    int* head;
+    int capacity;
+    int size;
+} HashMap;
+
+HashMap* createMap(int capacity) {
+    HashMap* map = (HashMap*)malloc(sizeof(HashMap));
+    map->nodes = (HashNode*)malloc(capacity * sizeof(HashNode));
+    map->head = (int*)malloc(capacity * sizeof(int));
+    map->capacity = capacity;
+    map->size = 0;
+    for (int i = 0; i < capacity; i++) map->head[i] = -1;
+    return map;
+}
+
+int hash(long long key, int capacity) {
+    int h = key % capacity;
+    if (h < 0) h += capacity;
+    return h;
+}
+
+void mapInsert(HashMap* map, long long key) {
+    int idx = hash(key, map->capacity);
+    for (int i = map->head[idx]; i != -1; i = map->nodes[i].next) {
+        if (map->nodes[i].key == key) {
+            map->nodes[i].count++;
+            return;
+        }
+    }
+    map->nodes[map->size].key = key;
+    map->nodes[map->size].count = 1;
+    map->nodes[map->size].next = map->head[idx];
+    map->head[idx] = map->size++;
+}
+
+int mapGet(HashMap* map, long long key) {
+    int idx = hash(key, map->capacity);
+    for (int i = map->head[idx]; i != -1; i = map->nodes[i].next) {
+        if (map->nodes[i].key == key) {
+            return map->nodes[i].count;
+        }
+    }
+    return 0;
+}
+
+void mapRemove(HashMap* map, long long key) {
+    int idx = hash(key, map->capacity);
+    for (int i = map->head[idx]; i != -1; i = map->nodes[i].next) {
+        if (map->nodes[i].key == key) {
+            if (map->nodes[i].count > 0) {
+                map->nodes[i].count--;
+            }
+            return;
+        }
+    }
+}
+
+void freeMap(HashMap* map) {
+    free(map->nodes);
+    free(map->head);
+    free(map);
+}
+
+void pruneMax(Heap* maxHeap, HashMap* delayed) {
+    while (maxHeap->size > 0) {
+        int top = maxHeap->data[1];
+        if (mapGet(delayed, top) > 0) {
+            mapRemove(delayed, top);
+            popMax(maxHeap);
+        } else {
+            break;
+        }
+    }
+}
+
+void pruneMin(Heap* minHeap, HashMap* delayed) {
+    while (minHeap->size > 0) {
+        int top = minHeap->data[1];
+        if (mapGet(delayed, top) > 0) {
+            mapRemove(delayed, top);
+            popMin(minHeap);
+        } else {
+            break;
+        }
+    }
+}
+
+double* medianSlidingWindow(int* nums, int numsSize, int k, int* returnSize) {
+    *returnSize = numsSize - k + 1;
+    double* result = (double*)malloc((*returnSize) * sizeof(double));
+    
+    Heap* maxHeap = createHeap(numsSize);
+    Heap* minHeap = createHeap(numsSize);
+    HashMap* delayed = createMap(numsSize * 2);
+    
+    int maxHeapSize = 0;
+    int minHeapSize = 0;
+    
+    for (int i = 0; i < k; i++) {
+        pushMax(maxHeap, nums[i]);
+        maxHeapSize++;
+    }
+    for (int i = 0; i < k / 2; i++) {
+        pushMin(minHeap, maxHeap->data[1]);
+        popMax(maxHeap);
+        maxHeapSize--;
+        minHeapSize++;
+    }
+    
+    if (k % 2 == 1) {
+        result[0] = maxHeap->data[1];
+    } else {
+        result[0] = ((double)maxHeap->data[1] + minHeap->data[1]) / 2.0;
+    }
+    
+    for (int i = k; i < numsSize; i++) {
+        int balance = 0;
+        int outNum = nums[i - k];
+        int inNum = nums[i];
+        
+        mapInsert(delayed, outNum);
+        
+        if (maxHeap->size > 0 && outNum <= maxHeap->data[1]) {
+            balance--;
+        } else {
+            balance++;
+        }
+        
+        if (maxHeap->size > 0 && inNum <= maxHeap->data[1]) {
+            pushMax(maxHeap, inNum);
+            balance++;
+        } else {
+            pushMin(minHeap, inNum);
+            balance--;
+        }
+        
+        if (balance < 0) {
+            pushMax(maxHeap, minHeap->data[1]);
+            popMin(minHeap);
+            balance += 2;
+        } else if (balance > 0) {
+            pushMin(minHeap, maxHeap->data[1]);
+            popMax(maxHeap);
+            balance -= 2;
+        }
+        
+        pruneMax(maxHeap, delayed);
+        pruneMin(minHeap, delayed);
+        
+        if (k % 2 == 1) {
+            result[i - k + 1] = maxHeap->data[1];
+        } else {
+            result[i - k + 1] = ((double)maxHeap->data[1] + minHeap->data[1]) / 2.0;
+        }
+    }
+    
+    free(maxHeap->data);
+    free(maxHeap);
+    free(minHeap->data);
+    free(minHeap);
+    freeMap(delayed);
+    
+    return result;
+}
